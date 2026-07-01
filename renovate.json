@@ -1,0 +1,41 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigestsToSemver",
+    "customManagers:dockerfileVersions"
+  ],
+  "timezone": "Europe/Berlin",
+  "labels": ["dependencies"],
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 3,
+  "osvVulnerabilityAlerts": true,
+  "packageRules": [
+    {
+      "description": "Group and automerge non-major GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "github-actions",
+      "automerge": true
+    },
+    {
+      "description": "Group App (Add-on) base image updates",
+      "matchDatasources": ["docker"],
+      "groupName": "App (Add-on) base image"
+    },
+    {
+      "description": "Automerge non-major base image updates",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Automerge non-major cloudflared updates after 3-day soak",
+      "matchDatasources": ["github-releases"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "minimumReleaseAge": "3 days",
+      "automerge": true
+    }
+  ]
+}
