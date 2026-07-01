@@ -28,11 +28,13 @@ schema:
     - hostname: str
       service: str
       disableChunkedEncoding: bool?
+      no_tls_verify: bool?
   tunnel_name: str?
   catch_all_service: str?
   nginx_proxy_manager: bool?
   tunnel_token: str?
   post_quantum: bool?
+  no_tls_verify: bool?
   run_parameters:
     - match(^(--edge-bind-address|--edge-ip-version|--grace-period|--ha-connections|--logfile|--loglevel|--metrics|--pidfile|--protocol|--region|--retries|--tag)=.*$)?
   log_level: list(trace|debug|info|notice|warning|error|fatal)?

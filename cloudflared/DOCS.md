@@ -79,6 +79,7 @@ advanced config can be achieved using the remote tunnel setup.
 - [`tunnel_name`](#option-tunnel_name)
 - [`catch_all_service`](#option-catch_all_service)
 - [`nginx_proxy_manager`](#option-nginx_proxy_manager)
+- [`no_tls_verify`](#option-no_tls_verify)
 - [`post_quantum`](#option-post_quantum)
 - [`run_parameters`](#option-run_parameters)
 - [`log_level`](#option-log_level)
@@ -228,6 +229,29 @@ a non post-quantum connection._
 ```yaml
 post_quantum: true
 ```
+
+### Option: `no_tls_verify`
+
+By default, TLS certificate verification is disabled for backend services
+(`noTLSVerify: true`). This allows connecting to services with self-signed
+or internal certificates, common in home networks.
+
+Set this option to `false` to enforce TLS certificate verification on all
+backend connections — recommended if your services use valid certificates.
+
+The option can be set globally and overridden per `additional_hosts` entry:
+
+```yaml
+no_tls_verify: false
+additional_hosts:
+  - hostname: router.example.com
+    service: http://192.168.1.1
+    no_tls_verify: true
+```
+
+**Note**: _Changing this setting does not affect remotely managed tunnels
+(`tunnel_token`), where ingress rules are configured in the Cloudflare
+Zero Trust dashboard._
 
 ### Option: `run_parameters`
 

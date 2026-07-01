@@ -264,20 +264,39 @@ createConfig() {
     config=$(bashio::jq "{\"tunnel\":\"${tunnel_uuid}\"}" ".")
     config=$(bashio::jq "${config}" ".\"credentials-file\" += \"${data_path}/tunnel.json\"")
 
+    # Determine TLS verification default (backward compatible: disabled unless explicitly set to false)
+    local default_no_tls_verify="true"
+    if bashio::config.false 'no_tls_verify'; then
+        default_no_tls_verify="false"
+    fi
+    bashio::log.debug "default_no_tls_verify: ${default_no_tls_verify}"
+
     # Add Service for Home Assistant if 'external_hostname' is set
     if bashio::config.has_value 'external_hostname'; then
-        config=$(bashio::jq "${config}" ".\"ingress\" += [{\"hostname\": \"${external_hostname}\", \"service\": \"${ha_url}\"}]")
+        local ha_ingress="{\"hostname\": \"${external_hostname}\", \"service\": \"${ha_url}\"}"
+        if bashio::var.true "${default_no_tls_verify}"; then
+            ha_ingress=$(bashio::jq "${ha_ingress}" ".originRequest += {\"noTLSVerify\": true}")
+        fi
+        config=$(bashio::jq "${config}" ".ingress += [${ha_ingress}]")
     fi
 
     # Check for configured additional hosts and add them if existing
     local additional_host
     local disableChunkedEncoding
+    local host_tls
     for additional_host in "${additional_hosts[@]}"; do
         # Check for originRequest configuration option: disableChunkedEncoding
         disableChunkedEncoding=$(bashio::jq "${additional_host}" ". | select(.disableChunkedEncoding != null) | .disableChunkedEncoding ")
         if ! [[ ${disableChunkedEncoding} == "" ]]; then
             additional_host=$(bashio::jq "${additional_host}" "del(.disableChunkedEncoding)")
             additional_host=$(bashio::jq "${additional_host}" ".originRequest += {\"disableChunkedEncoding\": ${disableChunkedEncoding}}")
+        fi
+
+        # Check for per-host TLS verification override (falls back to default_no_tls_verify)
+        host_tls=$(bashio::jq "${additional_host}" ".no_tls_verify // ${default_no_tls_verify}")
+        additional_host=$(bashio::jq "${additional_host}" "del(.no_tls_verify)")
+        if bashio::var.true "${host_tls}"; then
+            additional_host=$(bashio::jq "${additional_host}" ".originRequest += {\"noTLSVerify\": true}")
         fi
 
         # Add additional_host config to ingress config
@@ -288,7 +307,11 @@ createConfig() {
     if bashio::config.true 'nginx_proxy_manager'; then
 
         bashio::log.warning "Running with Nginxproxymanager support, make sure the app (add-on) is installed and running."
-        config=$(bashio::jq "${config}" ".\"ingress\" += [{\"service\": \"http://a0d7b954-nginxproxymanager:80\"}]")
+        if bashio::var.true "${default_no_tls_verify}"; then
+            config=$(bashio::jq "${config}" ".\"ingress\" += [{\"service\": \"http://a0d7b954-nginxproxymanager:80\", \"originRequest\": {\"noTLSVerify\": true}}]")
+        else
+            config=$(bashio::jq "${config}" ".\"ingress\" += [{\"service\": \"http://a0d7b954-nginxproxymanager:80\"}]")
+        fi
     else
 
         # Check if catch all service is defined
@@ -298,15 +321,20 @@ createConfig() {
             # Setting catch all service to defined URL
             local catch_all
             catch_all=$(bashio::config 'catch_all_service')
-            config=$(bashio::jq "${config}" ".ingress += [{\"service\": \$catch_all}]" --arg catch_all "$catch_all")
+            if bashio::var.true "${default_no_tls_verify}"; then
+                config=$(bashio::jq "${config}" ".ingress += [{\"service\": \$catch_all, \"originRequest\": {\"noTLSVerify\": true}}]" --arg catch_all "$catch_all")
+            else
+                config=$(bashio::jq "${config}" ".ingress += [{\"service\": \$catch_all}]" --arg catch_all "$catch_all")
+            fi
         else
             # Finalize config without NPM support and catch all service, sending all other requests to HTTP:404
-            config=$(bashio::jq "${config}" ".\"ingress\" += [{\"service\": \"http_status:404\"}]")
+            if bashio::var.true "${default_no_tls_verify}"; then
+                config=$(bashio::jq "${config}" ".\"ingress\" += [{\"service\": \"http_status:404\", \"originRequest\": {\"noTLSVerify\": true}}]")
+            else
+                config=$(bashio::jq "${config}" ".\"ingress\" += [{\"service\": \"http_status:404\"}]")
+            fi
         fi
     fi
-
-    # Deactivate TLS verification for all services
-    config=$(bashio::jq "${config}" ".ingress[].originRequest += {\"noTLSVerify\": true}")
 
     # Write content of config variable to config file for cloudflared
     local default_config="/tmp/config.json"
