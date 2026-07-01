@@ -294,9 +294,11 @@ createConfig() {
         # Check if catch all service is defined
         if bashio::config.has_value 'catch_all_service'; then
 
-            bashio::log.info "Runing with Catch all Service"
+            bashio::log.info "Running with Catch all Service"
             # Setting catch all service to defined URL
-            config=$(bashio::jq "${config}" ".\"ingress\" += [{\"service\": \"$(bashio::config 'catch_all_service')\"}]")
+            local catch_all
+            catch_all=$(bashio::config 'catch_all_service')
+            config=$(bashio::jq "${config}" ".ingress += [{\"service\": \$catch_all}]" --arg catch_all "$catch_all")
         else
             # Finalize config without NPM support and catch all service, sending all other requests to HTTP:404
             config=$(bashio::jq "${config}" ".\"ingress\" += [{\"service\": \"http_status:404\"}]")
