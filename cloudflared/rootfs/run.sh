@@ -30,7 +30,8 @@ fi
 # Check if we run local or remote managed tunnel and set related options
 if bashio::config.has_value 'tunnel_token'; then
     bashio::log.trace "bashio::config.has_value 'tunnel_token'"
-    options+=(run --token="$(bashio::config 'tunnel_token')")
+    export TUNNEL_TOKEN="$(bashio::config 'tunnel_token')"
+    options+=(run)
 else
     bashio::log.debug "using ${config_file} config file"
     options+=(--origincert="${certificate}")
