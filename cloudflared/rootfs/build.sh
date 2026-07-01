@@ -25,6 +25,16 @@ esac
 # Download the cloudflared bin
 wget -q -O /usr/bin/cloudflared "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-${cloudflared_arch}"
 
+# Verify checksum
+wget -q -O /tmp/cloudflared.sha256 "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-${cloudflared_arch}.sha256"
+expected=$(cut -d' ' -f1 /tmp/cloudflared.sha256)
+actual=$(sha256sum /usr/bin/cloudflared | cut -d' ' -f1)
+if [ "$expected" != "$actual" ]; then
+    echo "Checksum verification failed for cloudflared binary!"
+    exit 1
+fi
+rm -f /tmp/cloudflared.sha256
+
 # Make the downloaded bin executeable
 chmod +x /usr/bin/cloudflared
 
