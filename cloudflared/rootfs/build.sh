@@ -22,17 +22,20 @@ case "${BUILD_ARCH}" in
     ;;
 esac
 
-# Download the cloudflared bin
-wget -q -O /usr/bin/cloudflared "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-${cloudflared_arch}"
+# Download cloudflared .deb and verify its checksum
+deb_file="/tmp/cloudflared.deb"
+wget -q -O "$deb_file" \
+  "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-${cloudflared_arch}.deb"
 
-# Verify checksum from release body — Cloudflare publishes SHA256 hashes
-# in the release notes, not as downloadable files.
+# Cloudflare publishes SHA256 hashes in the release notes.
+# Verify the .deb hash before extracting — same trust anchor (GitHub/HTTPS),
+# but protects against corrupted downloads and CDN cache mismatches.
 expected_sha256=$(wget -qO- \
   "https://api.github.com/repos/cloudflare/cloudflared/releases/tags/${CLOUDFLARED_VERSION}" \
-  | sed -n "s/.*cloudflared-linux-${cloudflared_arch}: \([a-f0-9]\{64\}\).*/\1/p")
-actual_sha256=$(sha256sum /usr/bin/cloudflared | cut -d' ' -f1)
+  | sed -n "s/.*cloudflared-linux-${cloudflared_arch}\\.deb: \\([a-f0-9]\\{64\\}\\).*/\\1/p")
+actual_sha256=$(sha256sum "$deb_file" | cut -d' ' -f1)
 if [ -z "$expected_sha256" ]; then
-  echo "ERROR: could not find expected checksum for cloudflared-linux-${cloudflared_arch}"
+  echo "ERROR: could not find expected checksum for cloudflared-linux-${cloudflared_arch}.deb"
   exit 1
 fi
 if [ "$expected_sha256" != "$actual_sha256" ]; then
@@ -41,7 +44,15 @@ if [ "$expected_sha256" != "$actual_sha256" ]; then
   echo "Got:      $actual_sha256"
   exit 1
 fi
-echo "Checksum OK: $actual_sha256"
+echo "Deb checksum OK: $actual_sha256"
+
+# Extract the cloudflared binary from the .deb (ar archive containing
+# control.tar.* and data.tar.*; the binary lives in data.tar.* at
+# usr/bin/cloudflared).
+cd /tmp
+ar x "$deb_file" data.tar.gz
+tar -xzf data.tar.gz -C / ./usr/bin/cloudflared
+rm -f "$deb_file" data.tar.gz
 
 # Make the downloaded bin executeable
 chmod +x /usr/bin/cloudflared
