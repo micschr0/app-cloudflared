@@ -25,6 +25,24 @@ esac
 # Download the cloudflared bin
 wget -q -O /usr/bin/cloudflared "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-${cloudflared_arch}"
 
+# Verify checksum from release body — Cloudflare publishes SHA256 hashes
+# in the release notes, not as downloadable files.
+expected_sha256=$(wget -qO- \
+  "https://api.github.com/repos/cloudflare/cloudflared/releases/tags/${CLOUDFLARED_VERSION}" \
+  | sed -n "s/.*cloudflared-linux-${cloudflared_arch}: \([a-f0-9]\{64\}\).*/\1/p")
+actual_sha256=$(sha256sum /usr/bin/cloudflared | cut -d' ' -f1)
+if [ -z "$expected_sha256" ]; then
+  echo "ERROR: could not find expected checksum for cloudflared-linux-${cloudflared_arch}"
+  exit 1
+fi
+if [ "$expected_sha256" != "$actual_sha256" ]; then
+  echo "Checksum mismatch!"
+  echo "Expected: $expected_sha256"
+  echo "Got:      $actual_sha256"
+  exit 1
+fi
+echo "Checksum OK: $actual_sha256"
+
 # Make the downloaded bin executeable
 chmod +x /usr/bin/cloudflared
 
